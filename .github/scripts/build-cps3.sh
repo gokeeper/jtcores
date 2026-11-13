@@ -16,7 +16,10 @@ fi
 jtframe files plain cps3 --target=mister
 mv files build-info/sources.txt
 
-modules/jtframe/devops/xjtcore.sh cps3 mister
+# Use the helper's build commands in the environment already initialized above.
+# xjtcore.sh is not executable and would source setprj.sh a second time.
+jtframe mra --nodbg --skipROM --skipPocket cps3
+jtutil seed --max-trials 8 cps3 -mister --nodbg --nolinter
 test -s release/mister/jtcps3.rbf
 
 found=0
