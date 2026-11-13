@@ -32,12 +32,13 @@ jobs:
         run: |
           set -euo pipefail
           git config --global url.https://github.com/.insteadOf git@github.com:
-          while read -r key path; do
+          # .gitmodules contains stale entries; initialize only tracked gitlinks.
+          while IFS= read -r path; do
             case "$path" in
               modules/jt900h|modules/jt680x/crasm|modules/jtframe/target/pocket) continue ;;
             esac
             git submodule update --init --recursive --depth 1 -- "$path"
-          done < <(git config --file .gitmodules --get-regexp '\.path$')
+          done < <(git ls-files --stage | awk '$1 == "160000" {print $4}')
 
       - name: Verify configuration and compile
         shell: bash
