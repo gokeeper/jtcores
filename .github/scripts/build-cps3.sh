@@ -13,6 +13,9 @@ if grep -Eq '^export (BETA|JTFRAME_UNLOCKKEY|JTFRAME_SKIP)=' build-info/macros.t
     exit 1
 fi
 
+jtframe files plain cps3 --target=mister
+mv files build-info/sources.txt
+
 modules/jtframe/devops/xjtcore.sh cps3 mister
 test -s release/mister/jtcps3.rbf
 
