@@ -1,0 +1,75 @@
+name: Build CPS3 for MiSTer
+
+on:
+  push:
+    branches: [cps3-local-build]
+    paths:
+      - .beta.yaml
+      - .github/workflows/cps3-mister.yml
+      - .github/scripts/build-cps3.sh
+      - cores/cps3/**
+      - modules/jtframe/**
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cps3-mister-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 300
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+
+      - name: Initialize public dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config --global url.https://github.com/.insteadOf git@github.com:
+          while read -r key path; do
+            case "$path" in
+              modules/jt900h|modules/jt680x/crasm|modules/jtframe/target/pocket) continue ;;
+            esac
+            git submodule update --init --recursive --depth 1 -- "$path"
+          done < <(git config --file .gitmodules --get-regexp '\.path$')
+
+      - name: Verify configuration and compile
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p build-info
+          git rev-parse HEAD > build-info/source-commit.txt
+          git submodule status --recursive > build-info/submodules.txt
+          docker pull jotego/jtcore20
+          docker image inspect jotego/jtcore20 --format '{{json .RepoDigests}}' > build-info/docker-image.txt
+          docker run --rm --entrypoint bash --network host \
+            -v "$PWD:/jtcores" jotego/jtcore20 \
+            /jtcores/.github/scripts/build-cps3.sh
+
+      - name: Upload core and MRAs
+        uses: actions/upload-artifact@v6
+        with:
+          name: cps3-mister-${{ github.sha }}
+          path: |
+            release/mister/jtcps3.rbf
+            release/mra/
+            build-info/
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Upload diagnostics
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: cps3-build-diagnostics-${{ github.sha }}
+          path: |
+            log/
+            build-info/
+          if-no-files-found: warn
+          retention-days: 7
